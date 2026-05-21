@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:offline_news_app/core/network/connectivity_service.dart';
 
 import '../core/utils/app_logger.dart';
 import '../data/local/news_local_service.dart';
@@ -9,6 +10,9 @@ class NewsViewModel extends ChangeNotifier {
   final NewsRepository repository = NewsRepository();
 
   final NewsLocalService localService = NewsLocalService();
+  final ConnectivityService connectivityService = ConnectivityService();
+
+  bool isOffline = false;
 
   bool isLoading = false;
 
@@ -42,7 +46,13 @@ class NewsViewModel extends ChangeNotifier {
       /// STEP 2
       /// FETCH FRESH DATA
 
-      await refreshNews();
+      final hasInternet = await connectivityService.checkConnection();
+
+      if (hasInternet) {
+        await refreshNews();
+      } else {
+        AppLogger.warning('Skipping API refresh due to no internet');
+      }
     } catch (e) {
       AppLogger.error('ViewModel Error: $e');
     } finally {
@@ -78,5 +88,21 @@ class NewsViewModel extends ChangeNotifier {
 
       notifyListeners();
     }
+  }
+
+  void startConnectivityMonitoring() {
+    connectivityService.startMonitoring(
+      onStatusChanged: (isConnected) async {
+        isOffline = !isConnected;
+
+        notifyListeners();
+
+        if (isConnected) {
+          AppLogger.network('Auto syncing after internet restoration...');
+
+          await refreshNews();
+        }
+      },
+    );
   }
 }
