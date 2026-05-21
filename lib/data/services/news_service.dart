@@ -4,7 +4,7 @@ import '../../core/utils/app_logger.dart';
 class NewsService {
   final DioClient dioClient = DioClient();
 
-  final String apiKey = 'YOUR_API_KEY';
+  final String apiKey = 'bbd14d6d93674d17b16caacde691a6a1';
 
   Future<List<dynamic>> fetchNews() async {
     try {

@@ -1,60 +1,80 @@
 import 'package:flutter/material.dart';
-import 'package:offline_news_app/core/network/connectivity_service.dart';
 
+import '../core/network/connectivity_service.dart';
 import '../core/utils/app_logger.dart';
-import '../data/local/news_local_service.dart';
+import '../core/utils/data_state.dart';
 import '../data/models/article_model.dart';
 import '../data/repositories/news_repository.dart';
 
 class NewsViewModel extends ChangeNotifier {
-  final NewsRepository repository = NewsRepository();
+  final NewsRepository repository =
+      NewsRepository();
 
-  final NewsLocalService localService = NewsLocalService();
-  final ConnectivityService connectivityService = ConnectivityService();
-
-  bool isOffline = false;
+  final ConnectivityService connectivityService =
+      ConnectivityService();
 
   bool isLoading = false;
 
   bool isRefreshing = false;
 
+  bool isOffline = false;
+
+  String? errorMessage;
+
   List<ArticleModel> articles = [];
+
+  /// INITIAL LOAD
 
   Future<void> fetchNews() async {
     try {
-      AppLogger.info('ViewModel fetchNews started');
+      AppLogger.state(
+        'Starting initial news load...',
+      );
 
       isLoading = true;
 
       notifyListeners();
 
-      /// STEP 1
-      /// LOAD LOCAL DATA
+      /// LOAD CACHE FIRST
 
-      final localArticles = localService.getArticles();
+      final cachedArticles =
+          await repository.getCachedNews();
 
-      articles = localArticles
+      articles = cachedArticles
           .map<ArticleModel>(
-            (json) => ArticleModel.fromJson(Map<String, dynamic>.from(json)),
+            (json) => ArticleModel.fromJson(
+              Map<String, dynamic>.from(json),
+            ),
           )
           .toList();
 
-      AppLogger.cache('UI updated with cached articles');
+      AppLogger.cache(
+        'UI updated with cached data',
+      );
 
       notifyListeners();
 
-      /// STEP 2
-      /// FETCH FRESH DATA
+      /// CHECK INTERNET
 
-      final hasInternet = await connectivityService.checkConnection();
+      final hasInternet =
+          await connectivityService
+              .checkConnection();
 
       if (hasInternet) {
         await refreshNews();
       } else {
-        AppLogger.warning('Skipping API refresh due to no internet');
+        AppLogger.warning(
+          'Offline mode active',
+        );
+
+        isOffline = true;
       }
     } catch (e) {
-      AppLogger.error('ViewModel Error: $e');
+      AppLogger.error(
+        'ViewModel Error: $e',
+      );
+
+      errorMessage = e.toString();
     } finally {
       isLoading = false;
 
@@ -62,27 +82,49 @@ class NewsViewModel extends ChangeNotifier {
     }
   }
 
+  /// REFRESH NEWS
+
   Future<void> refreshNews() async {
     try {
-      AppLogger.network('Fetching fresh articles...');
-
       isRefreshing = true;
 
       notifyListeners();
 
-      final response = await repository.newsService.fetchNews();
+      final DataState<List<dynamic>>
+          response =
+          await repository.getFreshNews();
 
-      await localService.saveArticles(response);
+      if (response.isSuccess) {
+        articles = response.data!
+            .map<ArticleModel>(
+              (json) =>
+                  ArticleModel.fromJson(
+                Map<String, dynamic>.from(
+                  json,
+                ),
+              ),
+            )
+            .toList();
 
-      articles = response
-          .map<ArticleModel>(
-            (json) => ArticleModel.fromJson(Map<String, dynamic>.from(json)),
-          )
-          .toList();
+        AppLogger.success(
+          'UI updated with fresh news',
+        );
 
-      AppLogger.success('UI updated with fresh API data');
+        errorMessage = null;
+      } else {
+        errorMessage =
+            response.error;
+
+        AppLogger.error(
+          'Refresh failed',
+        );
+      }
     } catch (e) {
-      AppLogger.error('Refresh Error: $e');
+      AppLogger.error(
+        'Refresh Error: $e',
+      );
+
+      errorMessage = e.toString();
     } finally {
       isRefreshing = false;
 
@@ -90,19 +132,35 @@ class NewsViewModel extends ChangeNotifier {
     }
   }
 
+  /// CONNECTIVITY MONITORING
+
   void startConnectivityMonitoring() {
     connectivityService.startMonitoring(
-      onStatusChanged: (isConnected) async {
+      onStatusChanged: (
+        isConnected,
+      ) async {
         isOffline = !isConnected;
 
         notifyListeners();
 
         if (isConnected) {
-          AppLogger.network('Auto syncing after internet restoration...');
+          AppLogger.network(
+            'Auto syncing after internet restore...',
+          );
 
           await refreshNews();
         }
       },
     );
+  }
+
+  /// CLEAR CACHE
+
+  Future<void> clearCache() async {
+    await repository.clearCache();
+
+    articles.clear();
+
+    notifyListeners();
   }
 }

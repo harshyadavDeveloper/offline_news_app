@@ -18,9 +18,7 @@ class NewsLocalService {
 
     final articles = newsBox.get('articles', defaultValue: []);
 
-    AppLogger.success(
-      'Loaded ${articles.length} cached articles',
-    );
+    AppLogger.success('Loaded ${articles.length} cached articles');
 
     return articles;
   }

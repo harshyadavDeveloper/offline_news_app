@@ -28,6 +28,6 @@ class AppLogger {
   }
 
   static void state(String message) {
-  print('🧠 STATE: $message');
-}
+    print('🧠 STATE: $message');
+  }
 }
