@@ -26,4 +26,8 @@ class AppLogger {
   static void retry(String message) {
     print('🔄 RETRY: $message');
   }
+
+  static void state(String message) {
+  print('🧠 STATE: $message');
+}
 }

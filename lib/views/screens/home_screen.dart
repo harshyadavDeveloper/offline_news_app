@@ -29,30 +29,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Offline News App')),
-      body: viewModel.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: viewModel.articles.length,
-              itemBuilder: (context, index) {
-                final article = viewModel.articles[index];
+      body: RefreshIndicator(
+  onRefresh: () async {
+    AppLogger.info(
+      'Pull-to-refresh triggered',
+    );
 
-                return ListTile(
-                  leading: article.imageUrl.isNotEmpty
+    await viewModel.refreshNews();
+  },
+  child: viewModel.isLoading
+      ? const Center(
+          child: CircularProgressIndicator(),
+        )
+      : ListView.builder(
+          itemCount:
+              viewModel.articles.length,
+          itemBuilder: (context, index) {
+            final article =
+                viewModel.articles[index];
+
+            return ListTile(
+              leading:
+                  article.imageUrl.isNotEmpty
                       ? Image.network(
                           article.imageUrl,
                           width: 80,
                           fit: BoxFit.cover,
                         )
                       : null,
-                  title: Text(article.title),
-                  subtitle: Text(
-                    article.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
-              },
-            ),
+              title: Text(article.title),
+              subtitle: Text(
+                article.description,
+                maxLines: 2,
+                overflow:
+                    TextOverflow.ellipsis,
+              ),
+            );
+          },
+        ),
+),
     );
   }
 }
